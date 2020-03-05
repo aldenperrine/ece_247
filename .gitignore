@@ -6,3 +6,6 @@ include
 
 # project data
 project
+
+# ipy kernel
+__pycache__
