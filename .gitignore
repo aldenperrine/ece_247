@@ -1,5 +1,8 @@
 # virtual environment
 .env
+bin
+lib
+include
 
 # project data
 project
