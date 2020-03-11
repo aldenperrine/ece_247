@@ -79,8 +79,8 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
 
     model = keras.models.Sequential()
 
-    conv1 = layers.Conv2D(30, kernel_size=(10, 1), input_shape=(1000, 22, 1), strides=1,  kernel_regularizer=regularizers.l2(reg))
-    conv2 = layers.Conv2D(30, kernel_size=(1, 22), kernel_regularizer=regularizers.l2(reg))
+    conv1 = layers.Conv2D(20, kernel_size=(10, 1), input_shape=(1000, 22, 1), strides=1,  kernel_regularizer=regularizers.l2(reg))
+    conv2 = layers.Conv2D(20, kernel_size=(1, 22), kernel_regularizer=regularizers.l2(reg))
     perm1 = layers.Permute((1, 3, 2))
     pool1 = layers.AveragePooling2D(pool_size=(3, 1))
     drop1 = layers.Dropout(dropout)
@@ -95,7 +95,7 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
     model.add(pool1)
     model.add(drop1)
 
-    conv3 = layers.Conv2D(60, kernel_size=(10, 30), kernel_regularizer=regularizers.l2(reg))
+    conv3 = layers.Conv2D(40, kernel_size=(10, 20), kernel_regularizer=regularizers.l2(reg))
     model.add(layers.ELU(alpha))
     perm2 = layers.Permute((1, 3, 2))
     pool2 = layers.AveragePooling2D(pool_size=(3, 1))
@@ -108,7 +108,7 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
     model.add(pool2)
     model.add(drop2)
 
-    conv4 = layers.Conv2D(120, kernel_size=(10, 60), kernel_regularizer=regularizers.l2(reg))
+    conv4 = layers.Conv2D(80, kernel_size=(10, 40), kernel_regularizer=regularizers.l2(reg))
     perm3 = layers.Permute((1, 3, 2))
     pool3 = layers.AveragePooling2D(pool_size=(3, 1))
     drop3 = layers.Dropout(dropout)
@@ -120,7 +120,7 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
     model.add(pool3)
     model.add(drop3)
 
-    conv5 = layers.Conv2D(240, kernel_size=(10, 120), kernel_regularizer=regularizers.l2(reg))
+    conv5 = layers.Conv2D(160, kernel_size=(10, 80), kernel_regularizer=regularizers.l2(reg))
     perm4 = layers.Permute((1, 3, 2))
     pool4 = layers.AveragePooling2D(pool_size=(3, 1))
     drop4 = layers.Dropout(dropout)
@@ -134,6 +134,7 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
 
 
     model.add(layers.Flatten())
+
     #dense1 = layers.Dense(512, activation='elu', name='dense_1', kernel_regularizer=regularizers.l2(reg))
 
     #dense2 = layers.Dense(1024, activation='elu', name='dense_2', kernel_regularizer=regularizers.l2(reg))
@@ -145,12 +146,13 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
     model.add(layers.Activation('softmax', dtype='float32', name='predictions'))
 
     model.compile(loss='sparse_categorical_crossentropy',
-                          optimizer=keras.optimizers.SGD(learning_rate, nesterov=True),
-                          metrics=['accuracy'])
+                  #optimizer=keras.optimizers.SGD(learning_rate, nesterov=True),
+                  optimizer=keras.optimizers.Adam(learning_rate=0.000075, beta_1=0.88, beta_2=0.9, amsgrad=True),
+                  metrics=['accuracy'])
     history = model.fit(x_train, y_train,
-                        batch_size=30,
+                        batch_size=20,
                         epochs=100,
-                        validation_split=0.1,
+                        validation_split=0.2,
                         verbose=1)
     test_scores = model.evaluate(x_test, y_test, verbose=2)
     print('Test loss:', test_scores[0])
@@ -169,7 +171,7 @@ def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001):
     y_train -= 769
     y_test -= 769
 
-    model = keras.models.Sequential()
+    model = kerasc.models.Sequential()
 
 
     conv1 = layers.Conv2D(30, kernel_size=(10, 1), input_shape=(1000, 22, 1), strides=1, activation='elu', kernel_regularizer=regularizers.l2(reg))
@@ -240,9 +242,16 @@ def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001):
 
     return model
 
+def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, dropout=0.5, learning_rate=0.001, alpha=0.75):
+    x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
+    x_test = x_test.transpose((0, 2, 1))[:, :, :, None]
+    y_train -= 769
+    y_test -= 769
+
+    pass
+
 if __name__ == "__main__":
     init()
     x_test, y_test, _, x_train, y_train, _ = load.load_data()
-    parser = argparse.ArgumentParser(description='Train a model with params.')
-    make_cnn_model(x_train, y_train, x_test, y_test, reg=0.001, dropout=0.5, learning_rate=0.0015, alpha=0.75)
+    make_cnn_model(x_train, y_train, x_test, y_test, reg=0.005, dropout=0.6, learning_rate=0.00075, alpha=0.8)
     #make_lstm_model(x_train, y_train, x_test, y_test)
