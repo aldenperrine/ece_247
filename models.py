@@ -8,7 +8,6 @@ from tensorflow.keras import layers, regularizers
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 import load
-import argparse
 import matplotlib.pyplot as plt
 
 def init():
@@ -160,7 +159,7 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
     return model
 
 
-def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001):
+def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learning_rate=0.001, dropout=0.5, epochs=100, relative_size=1.0, optim='SGD'):
     #policy = mixed_precision.Policy('mixed_float16')
     #mixed_precision.set_policy(policy)
     x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
@@ -171,15 +170,17 @@ def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001):
     model = keras.models.Sequential()
 
 
-    conv1 = layers.Conv2D(30, kernel_size=(10, 1), input_shape=(1000, 22, 1), strides=1, activation='elu', kernel_regularizer=regularizers.l2(reg))
-    conv2 = layers.Conv2D(30, kernel_size=(1, 22), activation='elu', kernel_regularizer=regularizers.l2(reg))
+    conv1 = layers.Conv2D(30, kernel_size=(10, 1), strides=1, kernel_regularizer=regularizers.l2(reg))
+    conv2 = layers.Conv2D(30, kernel_size=(1, 22), kernel_regularizer=regularizers.l2(reg))
     perm1 = layers.Permute((1, 3, 2))
     pool1 = layers.MaxPool2D(pool_size=(3, 1))
-    drop1 = layers.Dropout(.8)
+    drop1 = layers.Dropout(dropout)
 
     model.add(conv1)
+    model.add(layers.ELU(alpha))
     model.add(layers.BatchNormalization())
     model.add(conv2)
+    model.add(layers.ELU(alpha))
     model.add(layers.BatchNormalization())
     model.add(perm1)
     model.add(pool1)
@@ -189,53 +190,56 @@ def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001):
 
     model.add(layers.LSTM(20, return_sequences=True, kernel_regularizer=regularizers.l2(reg)))
     model.add(layers.BatchNormalization())
-    drop1 = layers.Dropout(.8)
+    drop1 = layers.Dropout(dropout)
     model.add(drop1)
 
     model.add(layers.LSTM(20, return_sequences=True, kernel_regularizer=regularizers.l2(reg)))
     model.add(layers.BatchNormalization())
-    drop1 = layers.Dropout(.8)
+    drop1 = layers.Dropout(dropout)
     model.add(drop1)
 
-    print(model.output_shape)
     model.add(layers.Reshape((330, 20, 1)))
-    conv5 = layers.Conv2D(120, kernel_size=(10, 1), activation='elu', kernel_regularizer=regularizers.l2(reg))
+    conv5 = layers.Conv2D(60, kernel_size=(10, 1), kernel_regularizer=regularizers.l2(reg))
     perm4 = layers.Permute((1, 3, 2))
     pool4 = layers.MaxPool2D(pool_size=(3, 1))
-    drop4 = layers.Dropout(.8)
+    drop4 = layers.Dropout(dropout)
 
     model.add(conv5)
+    model.add(layers.ELU(alpha))
     model.add(layers.BatchNormalization())
     model.add(perm4)
     model.add(pool4)
     model.add(drop4)
 
-
-    #dense1 = layers.Dense(1024, name='dense_1', kernel_regularizer=regularizers.l2(0.001))
-    #model.add(layers.ELU(alpha=0.05))
-    #model.add(layers.TimeDistributed(dense1))
-    #model.add(layers.BatchNormalization())
-
-    dense2 = layers.Dense(1024, activation='elu', name='dense_2')
+    dense2 = layers.Dense(128, name='dense_2')
     model.add(layers.TimeDistributed(dense2))
+    model.add(layers.ELU(alpha))
     model.add(layers.BatchNormalization())
-    drop2 = layers.Dropout(.5)
+    drop2 = layers.Dropout(dropout)
     model.add(drop2)
     model.add(layers.Flatten())
     model.add(layers.Dense(4, name='dense_logits', kernel_regularizer=regularizers.l2(reg)))
     model.add(layers.Activation('softmax', dtype='float32', name='predictions'))
 
+    if optim == 'Adam':
+        optimizer=keras.optimizers.Adam(learning_rate, beta_1=0.85, beta_2=0.92, amsgrad=True)
+    elif optim == 'RMSprop':
+        optimizer=keras.optimizers.RMSprop(learning_rate)
+    else:
+        optimizer=keras.optimizers.SGD(learning_rate, nesterov=True)
+
+
     model.compile(loss='sparse_categorical_crossentropy',
-                          optimizer=keras.optimizers.Adam(),
+                          optimizer=optimizer,
                           metrics=['accuracy'])
     history = model.fit(x_train, y_train,
                         batch_size=20,
-                        epochs=40,
+                        epochs=epochs,
                         validation_split=0.2)
     test_scores = model.evaluate(x_test, y_test, verbose=2)
     print('Test loss:', test_scores[0])
     print('Test accuracy:', test_scores[1])
-    print(history)
+    plot(history)
 
     return model
 
@@ -246,10 +250,11 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, dropout=0.5, lea
     y_test -= 769
 
     model = keras.models.Sequential()
+
     pass
 
 if __name__ == "__main__":
     init()
     x_test, y_test, _, x_train, y_train, _ = load.load_data()
-    make_cnn_model(x_train, y_train, x_test, y_test, reg=0.005, dropout=0.6, learning_rate=0.00075, alpha=0.8, epochs=500)
-    #make_lstm_model(x_train, y_train, x_test, y_test)
+    #make_cnn_model(x_train, y_train, x_test, y_test, reg=0.005, dropout=0.6, learning_rate=0.00075, alpha=0.8, epochs=500)
+    make_lstm_model(x_train, y_train, x_test, y_test, reg=0.002, dropout=0.45, alpha=.8)
