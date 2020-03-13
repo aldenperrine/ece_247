@@ -12,6 +12,7 @@ from tensorflow import keras
 from tensorflow.keras import layers, regularizers
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
+import numpy as np
 
 import load
 import matplotlib.pyplot as plt
@@ -309,8 +310,19 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     epochs = 50
     epsilon_std = 1.0
 
-    x_train = x_train.reshape(-1, original_dim) / 1000.
-    x_test = x_test.reshape(-1, original_dim) / 1000.
+    x_train = x_train.reshape(-1, original_dim)
+    train_mean = np.mean(x_train)
+    train_std = np.std(x_train)
+    norm_x_train = (x_train -train_mean ) / train_std
+
+
+    x_test = x_test.reshape(-1, original_dim)
+    test_mean = np.mean(x_test)
+    test_std = np.std(x_test)
+    norm_x_test = (x_train -test_mean ) / test_std
+
+
+
     decoder = kmodels.Sequential([
         klayers.Dense(intermediate_dim, input_dim=latent_dim,
                       activation='relu'),
@@ -335,16 +347,16 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     vae = kmodels.Model(inputs=[x, eps], outputs=x_pred)
     vae.compile(optimizer='adam', loss=nll)
 
-    history = vae.fit(x_train,
-                      x_train,
+    history = vae.fit(norm_x_train,
+                      norm_x_train,
                       shuffle=True,
                       epochs=epochs,
                       batch_size=batch_size,
                       validation_split=.2)
 
     encoder = kmodels.Model(x, z_mu)
-    z_train = encoder.predict(x_train, batch_size=batch_size)
-    z_test = encoder.predict(x_test, batch_size=batch_size)
+    z_train = encoder.predict(norm_x_train, batch_size=batch_size)
+    z_test = encoder.predict(norm_x_test, batch_size=batch_size)
 
     z_train = z_train.reshape(-1, 1000, 22, 1)
     z_test = z_test.reshape(-1, 1000, 22, 1)
