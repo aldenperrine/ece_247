@@ -77,8 +77,8 @@ def make_fc_model(x_train, y_train, x_test, y_test):
 
 
 def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learning_rate=0.001, dropout=0.5, epochs=100, relative_size=1.0, optim='SGD'):
-    policy = mixed_precision.Policy('mixed_float16')
-    mixed_precision.set_policy(policy)
+    #policy = mixed_precision.Policy('mixed_float16')
+    #mixed_precision.set_policy(policy)
     x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
     x_test = x_test.transpose((0, 2, 1))[:, :, :, None]
     y_train -= 769
@@ -177,8 +177,8 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
 
 
 def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learning_rate=0.001, dropout=0.5, epochs=100, relative_size=1.0, optim='SGD'):
-    policy = mixed_precision.Policy('mixed_float16')
-    mixed_precision.set_policy(policy)
+    #policy = mixed_precision.Policy('mixed_float16')
+    #mixed_precision.set_policy(policy)
     x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
     x_test = x_test.transpose((0, 2, 1))[:, :, :, None]
     y_train -= 769
@@ -271,7 +271,7 @@ def nll(y_true, y_pred):
 
     # keras.losses.binary_crossentropy gives the mean
     # over the last axis. we require the sum
-    return K.sum(K.binary_crossentropy(y_true, y_pred), axis=-1)
+    return K.sum(keras.losses.mean_squared_error(y_true, y_pred))
 
 
 class KLDivergenceLayer(klayers.Layer):
@@ -309,8 +309,8 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     epochs = 50
     epsilon_std = 1.0
 
-    x_train = x_train.reshape(-1, original_dim) / 255.
-    x_test = x_test.reshape(-1, original_dim) / 255.
+    x_train = x_train.reshape(-1, original_dim) / 1000.
+    x_test = x_test.reshape(-1, original_dim) / 1000.
     decoder = kmodels.Sequential([
         klayers.Dense(intermediate_dim, input_dim=latent_dim,
                       activation='relu'),
@@ -332,16 +332,15 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     z = klayers.Add()([z_mu, z_eps])
 
     x_pred = decoder(z)
-
     vae = kmodels.Model(inputs=[x, eps], outputs=x_pred)
-    vae.compile(optimizer='rmsprop', loss=nll)
+    vae.compile(optimizer='adam', loss=nll)
 
     history = vae.fit(x_train,
                       x_train,
                       shuffle=True,
                       epochs=epochs,
                       batch_size=batch_size,
-                      validation_data=(x_test, x_test))
+                      validation_split=.2)
 
     encoder = kmodels.Model(x, z_mu)
     z_train = encoder.predict(x_train, batch_size=batch_size)
@@ -405,7 +404,7 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     conv5 = layers.Conv2D(8*size, kernel_size=(10, 4*size),
                           kernel_regularizer=regularizers.l2(reg))
     perm4 = layers.Permute((1, 3, 2))
-    pool4 = layers.AveragePooling2Dg(pool_size=(3, 1))
+    pool4 = layers.AveragePooling2D(pool_size=(3, 1))
     drop4 = layers.Dropout(dropout)
 
     model.add(conv5)
@@ -448,7 +447,7 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
 if __name__ == "__main__":
     init()
     x_test, y_test, _, x_train, y_train, _ = load.load_data()
-    # make_cnn_model(x_train, y_train, x_test, y_test, reg=0.005, dropout=0.6, learning_rate=0.00075, alpha=0.8, epochs=500)
+    #make_cnn_model(x_train, y_train, x_test, y_test, reg=0.005, dropout=0.6, learning_rate=0.00075, alpha=0.8, epochs=100)
     # make_lstm_model(x_train, y_train, x_test, y_test,
     # reg=0.002, dropout=0.45, alpha=.8)
     make_vae_model(x_train, y_train, x_test, y_test)
