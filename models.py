@@ -274,7 +274,6 @@ def nll(y_true, y_pred):
     # over the last axis. we require the sum
     return K.sum(keras.losses.mean_squared_error(y_true, y_pred))
 
-
 class KLDivergenceLayer(klayers.Layer):
 
     """ Identity transform layer that adds KL divergence
@@ -303,11 +302,11 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     y_test -= 769
 
     # latent_dim should be much smaller, but right now its equal to the original cnn input size
-    latent_dim = 1000 * 22  # 2
+    latent_dim = 500 * 22  # 2
     original_dim = 22000
-    intermediate_dim = 256
+    intermediate_dim = 512
     batch_size = 100
-    epochs = 50
+    
     epsilon_std = 1.0
 
     x_train = x_train.reshape(-1, original_dim)
@@ -315,25 +314,22 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     train_std = np.std(x_train)
     norm_x_train = (x_train -train_mean ) / train_std
 
-
     x_test = x_test.reshape(-1, original_dim)
     test_mean = np.mean(x_test)
     test_std = np.std(x_test)
-    norm_x_test = (x_train -test_mean ) / test_std
-
-
+    norm_x_test = (x_test - test_mean ) / test_std
 
     decoder = kmodels.Sequential([
         klayers.Dense(intermediate_dim, input_dim=latent_dim,
-                      activation='relu'),
-        klayers.Dense(original_dim, activation='sigmoid')
+                      activation='relu', kernel_regularizer=regularizers.l2(reg)),
+        klayers.Dense(original_dim, activation='sigmoid', kernel_regularizer=regularizers.l2(reg))
     ])
 
     x = klayers.Input(shape=(original_dim,))
-    h = klayers.Dense(intermediate_dim, activation='relu')(x)
+    h = klayers.Dense(intermediate_dim, activation='relu', kernel_regularizer=regularizers.l2(reg))(x)
 
-    z_mu = klayers.Dense(latent_dim)(h)
-    z_log_var = klayers.Dense(latent_dim)(h)
+    z_mu = klayers.Dense(latent_dim, kernel_regularizer=regularizers.l2(reg))(h)
+    z_log_var = klayers.Dense(latent_dim, kernel_regularizer=regularizers.l2(reg))(h)
 
     z_mu, z_log_var = KLDivergenceLayer()([z_mu, z_log_var])
     z_sigma = klayers.Lambda(lambda t: K.exp(.5 * t))(z_log_var)
@@ -345,7 +341,7 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
 
     x_pred = decoder(z)
     vae = kmodels.Model(inputs=[x, eps], outputs=x_pred)
-    vae.compile(optimizer='adam', loss=nll)
+    vae.compile(optimizer='rmsprop', loss=nll)
 
     history = vae.fit(norm_x_train,
                       norm_x_train,
@@ -358,12 +354,9 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     z_train = encoder.predict(norm_x_train, batch_size=batch_size)
     z_test = encoder.predict(norm_x_test, batch_size=batch_size)
 
-    z_train = z_train.reshape(-1, 1000, 22, 1)
-    z_test = z_test.reshape(-1, 1000, 22, 1)
-
+    z_train = z_train.reshape(-1, 22, 500, 1).transpose(0, 2, 1, 3)
+    z_test = z_test.reshape(-1, 22, 500, 1).transpose(0, 2, 1, 3)
     # now pass encoded input into cnn
-
-    # expected: (2115, 1000, 22, 1)
 
     size = int(25 * relative_size)
     conv1 = layers.Conv2D(size, kernel_size=(
