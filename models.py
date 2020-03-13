@@ -10,7 +10,7 @@ from tensorflow.keras import backend as K
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, regularizers
-# from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 
 import load
@@ -46,8 +46,8 @@ def make_fc_model(x_train, y_train, x_test, y_test):
     y_train -= 769
     y_test -= 769
 
-    # policy = mixed_precision.Policy('mixed_float16')
-    # mixed_precision.set_policy(policy)
+    policy = mixed_precision.Policy('mixed_float16')
+    mixed_precision.set_policy(policy)
     num_units = 4096
     inputs = keras.Input(shape=(22000, ), name='eeg_data')
     dense1 = layers.Dense(num_units, activation='relu', name='dense_1')
@@ -77,8 +77,8 @@ def make_fc_model(x_train, y_train, x_test, y_test):
 
 
 def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learning_rate=0.001, dropout=0.5, epochs=100, relative_size=1.0, optim='SGD'):
-    #policy = mixed_precision.Policy('mixed_float16')
-    # mixed_precision.set_policy(policy)
+    policy = mixed_precision.Policy('mixed_float16')
+    mixed_precision.set_policy(policy)
     x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
     x_test = x_test.transpose((0, 2, 1))[:, :, :, None]
     y_train -= 769
@@ -177,8 +177,8 @@ def make_cnn_model(x_train, y_train, x_test, y_test,  reg=0.001, alpha=.7, learn
 
 
 def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learning_rate=0.001, dropout=0.5, epochs=100, relative_size=1.0, optim='SGD'):
-    #policy = mixed_precision.Policy('mixed_float16')
-    # mixed_precision.set_policy(policy)
+    policy = mixed_precision.Policy('mixed_float16')
+    mixed_precision.set_policy(policy)
     x_train = x_train.transpose((0, 2, 1))[:, :, :, None]
     x_test = x_test.transpose((0, 2, 1))[:, :, :, None]
     y_train -= 769
@@ -264,10 +264,6 @@ def make_lstm_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learn
     plot(history)
 
     return model
-
-# reparameterization trick
-# instead of sampling from Q(z|X), sample epsilon = N(0,I)
-# z = z_mean + sqrt(var) * epsilon
 
 
 def nll(y_true, y_pred):
@@ -409,7 +405,7 @@ def make_vae_model(x_train, y_train, x_test, y_test, reg=0.001, alpha=.7, learni
     conv5 = layers.Conv2D(8*size, kernel_size=(10, 4*size),
                           kernel_regularizer=regularizers.l2(reg))
     perm4 = layers.Permute((1, 3, 2))
-    pool4 = layers.AveragePooling2D(pool_size=(3, 1))
+    pool4 = layers.AveragePooling2Dg(pool_size=(3, 1))
     drop4 = layers.Dropout(dropout)
 
     model.add(conv5)
